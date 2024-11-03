@@ -19,6 +19,7 @@ class Player(pygame.sprite.Sprite):
     def __init__(self, surf, x, y):
         super(Player, self).__init__()
         # ANIMATION STUFF
+        self.vertical_velocity = 0
         NUMFRAMES = 9
         self.idleAnimation = [get_image(surf, i, surf.get_width() / NUMFRAMES, surf.get_height(), (255, 255, 255)) for i
                               in
@@ -34,37 +35,40 @@ class Player(pygame.sprite.Sprite):
 
         # STATES
         self.state = "idle"
-
+        self.direction = True  # TRUE MEANING LEFT FALSE MEANING RIGHT
+        self.left = False
+        self.right = False
         # PHYSICS STUFF
         self.pos = Vector2(x, y)
         self.rect = self.idleAnimation[0].get_frect(center=(self.pos.x, self.pos.y))
         self.movement = Vector2(0, 0)
 
-        self.velocity = 3
+        self.velocity = 1
         self.lastTime = time.time()
         self.dt = time.time() - self.lastTime
         self.dt *= 60
         self.lastTime = time.time()
         self.jumpCount = 10
         self.isJump = False
-        self.GRAVITY = 0.8
+        self.GRAVITY = 0.5
+        self.onGround = False
 
     def move_left(self):
         self.movement.x -= self.velocity * self.dt
+        self.direction = True
 
     def move_right(self):
         self.movement.x += self.velocity * self.dt
+        self.direction = False
 
     def gravity(self):
-        self.movement.y += self.GRAVITY
+        self.movement.y += self.GRAVITY * self.dt
 
     def jump(self):
-        self.movement.y -= self.jumpCount * abs(self.jumpCount) * 0.1
-        self.jumpCount -= 1
-        if self.jumpCount < -5:
-            self.isJump = False
-
-            self.jumpCount = 10
+        if self.onGround:
+            self.onGround = False
+            self.vertical_velocity = -10  # Adjust for jump height
+            self.isJump = True
 
     def update(self):
         self.movement = Vector2(0, 0)
@@ -73,11 +77,16 @@ class Player(pygame.sprite.Sprite):
         self.lastTime = time.time()
 
         if self.isJump:
-            self.jump()
+            self.vertical_velocity += self.GRAVITY
+            self.movement[1] += self.vertical_velocity
+            if self.vertical_velocity > 5:
+                self.isJump = False
 
+        if self.left:
+            self.move_left()
+        elif self.right:
+            self.move_right()
         self.gravity()
-        self.pos.y += self.movement.y
-        self.rect.x, self.rect.y = self.pos.x, self.pos.y
 
     def handle_animation(self):
 
@@ -93,23 +102,54 @@ class Player(pygame.sprite.Sprite):
             self.indexSpeed = 0.35
         elif self.state == "jump":
             self.currentAnimation = self.jumpAnimation
-            self.indexSpeed = 0.3
+            self.indexSpeed = 0.2
 
-        self.index += self.indexSpeed
+        self.index += self.indexSpeed * self.dt
         if self.index >= len(self.currentAnimation):
             self.index = 0
 
-        self.image = self.currentAnimation[int(self.index)]
+        self.image = pygame.transform.flip(self.currentAnimation[int(self.index)], self.direction, False)
 
     def handle_states(self):
-        if self.movement.x != 0:
+        if self.movement.x != 0 and self.onGround:
             self.state = "run"
         elif self.movement.y < 0:
             self.state = "jump"
-        elif self.movement.y > 0:
+        elif not self.onGround:
             self.state = "fall"
         else:
             self.state = "idle"
 
-    def draw(self, surf):
-        surf.blit(self.image, self.rect)
+    def hit_list(self, tiles):
+        collisions = []
+        for tile in tiles:
+            if tile.colliderect(self.rect):
+                collisions.append(tile)
+        return collisions
+
+    def move(self, tiles):
+        self.pos.x += self.movement.x
+        self.rect.x = self.pos.x
+
+        x_collisions = self.hit_list(tiles)
+
+        for tile in x_collisions:
+            if self.movement.x > 0:
+                self.rect.right = tile.left
+            elif self.movement.x < 0:
+                self.rect.left = tile.right
+        self.pos.x = self.rect.x
+
+        self.pos.y += self.movement.y
+        self.rect.y = self.pos.y
+        y_collisions = self.hit_list(tiles)
+
+        for tile in y_collisions:
+            if self.movement.y > 0:
+                self.rect.bottom = tile.top
+                self.onGround = True
+            elif self.movement.y < 0:
+                self.pos.x = self.rect.x
+                self.onGround = False
+
+        self.pos.y = self.rect.y

@@ -1,6 +1,10 @@
 import pygame
 import sys
 from data.scripts.player import Player
+from data.maps.levels import level1
+from data.scripts.cameragroup import CameraGroup
+from data.scripts.tilehandler import TileGroup
+from data.scripts.tile import Tile
 
 '''Concept: Echoes of the Forgotten
 Core Idea:
@@ -42,10 +46,29 @@ display = pygame.Surface((WIDTH // 4, HEIGHT // 4))
 
 playerSpriteSheet = pygame.image.load("data/images/player.png").convert()
 
-player = Player(playerSpriteSheet, display.get_width()//2, display.get_height()//2)
+player = Player(playerSpriteSheet, display.get_width() // 2, display.get_height() // 2)
+tileHandler = TileGroup()
+
+camera_group = CameraGroup(display)  # Use the screen dimensions
+camera_group.add(player)  # Add the player and other sprites to the camera group
 
 
 clock = pygame.time.Clock()
+TILESIZE = 16
+currentLevel = level1
+
+y = 0
+for row in currentLevel:
+    x = 0
+    for tile in row:
+
+        if tile == 1:
+            piece = Tile(x * TILESIZE, y * TILESIZE, TILESIZE, TILESIZE)
+            tileHandler.add(piece)
+
+        x += 1
+    y += 1
+camera_group.add_tile_group(tileHandler)
 
 while True:
     display.fill((0, 0, 0))
@@ -53,19 +76,37 @@ while True:
         if event.type == pygame.QUIT:
             pygame.quit()
             sys.exit()
+
         if event.type == pygame.KEYDOWN:
             if event.key == pygame.K_LEFT:
-                player.move_left()
+                player.left = True
+
             if event.key == pygame.K_RIGHT:
-                player.move_right()
+                player.right = True
+
             if event.key == pygame.K_SPACE:  # For jumping
-                player.isJump = True
+                player.jump()
+
+      #  if event.type == pygame.MOUSEBUTTONDOWN:
+        #    if event.button == 5:
+          #      camera_group.zoom -= 0.02
+         #   elif event.button == 4:
+             #   camera_group.zoom += 0.02
+
+        if event.type == pygame.KEYUP:
+            if event.key == pygame.K_LEFT:
+                player.left = False
+            if event.key == pygame.K_RIGHT:
+                player.right = False
+
+    tileRects = tileHandler.get_rects()
 
     player.handle_states()
     player.handle_animation()
-    player.draw(display)
-    player.update()
+    player.move(tileRects)  # Move based on current state
+    player.update()  # Update any final state changes (e.g., animations)
+    camera_group.custom_draw(player)
 
     screen.blit(pygame.transform.scale(display, (WIDTH, HEIGHT)), (0, 0))
     pygame.display.update()
-    clock.tick(60)
+    clock.tick(120)
