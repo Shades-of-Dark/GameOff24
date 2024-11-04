@@ -53,17 +53,38 @@ camera_group = CameraGroup(display)  # Use the screen dimensions
 camera_group.add(player)  # Add the player and other sprites to the camera group
 
 
+def get_image(surface, frame, width, height, color, column):
+    handle_surf = surface.copy()
+    clipRect = pygame.Rect(frame * width, column * height, width, height)
+    handle_surf.set_clip(clipRect)
+    image = surface.subsurface(handle_surf.get_clip())
+    image.set_colorkey(color)
+    return image.copy()
+
+
 clock = pygame.time.Clock()
 TILESIZE = 16
 currentLevel = level1
+
+tileSpriteSheet = pygame.image.load("data/images/mocktileset.png").convert()
+
+p = 0
+tileDict = dict()
+for row in range(3):
+    for tile in range(4):
+        p += 1
+        tileImage = get_image(tileSpriteSheet, frame=tile, width=16, height=16, color=(255, 255, 255), column=row)
+        print(tile, row, p)
+        tileDict[p] = tileImage
+
 
 y = 0
 for row in currentLevel:
     x = 0
     for tile in row:
 
-        if tile == 1:
-            piece = Tile(x * TILESIZE, y * TILESIZE, TILESIZE, TILESIZE)
+        if tile != 0:
+            piece = Tile(tileDict[tile], x * TILESIZE, y * TILESIZE, TILESIZE, TILESIZE)
             tileHandler.add(piece)
 
         x += 1
@@ -87,11 +108,11 @@ while True:
             if event.key == pygame.K_SPACE:  # For jumping
                 player.jump()
 
-      #  if event.type == pygame.MOUSEBUTTONDOWN:
+        #  if event.type == pygame.MOUSEBUTTONDOWN:
         #    if event.button == 5:
-          #      camera_group.zoom -= 0.02
-         #   elif event.button == 4:
-             #   camera_group.zoom += 0.02
+        #      camera_group.zoom -= 0.02
+        #   elif event.button == 4:
+        #   camera_group.zoom += 0.02
 
         if event.type == pygame.KEYUP:
             if event.key == pygame.K_LEFT:
@@ -103,10 +124,11 @@ while True:
 
     player.handle_states()
     player.handle_animation()
-    player.move(tileRects)  # Move based on current state
     player.update()  # Update any final state changes (e.g., animations)
+    player.move(tileRects)  # Move based on current state
+
     camera_group.custom_draw(player)
 
     screen.blit(pygame.transform.scale(display, (WIDTH, HEIGHT)), (0, 0))
     pygame.display.update()
-    clock.tick(120)
+    clock.tick(60)

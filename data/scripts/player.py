@@ -28,6 +28,7 @@ class Player(pygame.sprite.Sprite):
             get_image(surf, j, surf.get_width() / NUMFRAMES, surf.get_height(), (255, 255, 255)) for j in range(3, 6)]
         self.jumpAnimation = [get_image(surf, k, surf.get_width() / NUMFRAMES, surf.get_height(), (255, 255, 255)) for k
                               in range(6, 9)]
+
         self.currentAnimation = self.idleAnimation
         self.index = 0
         self.indexSpeed = 0.03
@@ -43,50 +44,116 @@ class Player(pygame.sprite.Sprite):
         self.rect = self.idleAnimation[0].get_frect(center=(self.pos.x, self.pos.y))
         self.movement = Vector2(0, 0)
 
-        self.velocity = 1
+        self.maxVelocity = 1.2
+        self.speed = float(0)
+        self.acceleration = float(self.maxVelocity / 6)  # amount of frames till the character reaches max speed
+        self.deceleration = float(self.maxVelocity / 3)
+
         self.lastTime = time.time()
         self.dt = time.time() - self.lastTime
         self.dt *= 60
         self.lastTime = time.time()
-        self.jumpCount = 10
+
+        self.jump_timer = 0
+        self.max_jump_duration = 20
+        self.jumpGravity = 0.5
         self.isJump = False
-        self.GRAVITY = 0.5
+
+        self.coyoteTime = 0.9
+
+        self.GRAVITY = 0.8
         self.onGround = False
 
+        self.ghostEnergy = 0
+        self.energyConsumption = 1
+        self.ghostVision = False
+
     def move_left(self):
-        self.movement.x -= self.velocity * self.dt
+        self.movement.x -= self.speed * self.dt
+
+        if self.speed <= self.maxVelocity:
+            self.speed += self.acceleration * self.dt
         self.direction = True
 
     def move_right(self):
-        self.movement.x += self.velocity * self.dt
+        self.movement.x += self.speed * self.dt
+        if self.speed <= self.maxVelocity:
+            self.speed += self.acceleration * self.dt
         self.direction = False
+
+    def handle_jump(self):
+        if self.isJump:
+            self.vertical_velocity += self.jumpGravity * self.dt
+            self.movement[1] += self.vertical_velocity * self.dt
+            self.vertical_velocity -= 0.1 * self.vertical_velocity
+
+            if self.vertical_velocity < 0:  # Going up
+
+                self.jumpGravity = 0.3  # Lower gravity
+            else:  # Falling down
+                self.jumpGravity = 0.45  # Normal gravity
+
+            self.jump_timer += 1 * self.dt
+
+            if self.jump_timer > self.max_jump_duration:
+                self.jump_timer = 0
+                self.isJump = False
+
+    def friction(self):
+        if self.state == "idle":
+            # Calculate frame-rate-adjusted deceleration
+            if not self.left and not self.right:
+                frame_deceleration = self.deceleration * self.dt
+
+                # Apply friction in the opposite direction of movement
+                if self.direction:  # Assuming direction True is right
+                    self.movement[0] -= frame_deceleration
+                else:  # direction False is left
+                    self.movement[0] += frame_deceleration
+
+                # Zero out small speeds to avoid flickering
+                if round(abs(self.movement[0]), 2) < 0.44:  # Threshold to consider speed "stopped"
+                    self.movement[0] = 0
+                    self.speed = 0  # Fully stop if below the threshold
+
+                # Update speed to reflect absolute movement
+                self.speed = abs(self.movement[0])
 
     def gravity(self):
         self.movement.y += self.GRAVITY * self.dt
 
-    def jump(self):
-        if self.onGround:
-            self.onGround = False
-            self.vertical_velocity = -10  # Adjust for jump height
-            self.isJump = True
-
-    def update(self):
-        self.movement = Vector2(0, 0)
+    def delta_time_update(self):
         self.dt = time.time() - self.lastTime
         self.dt *= 60
         self.lastTime = time.time()
 
-        if self.isJump:
-            self.vertical_velocity += self.GRAVITY
-            self.movement[1] += self.vertical_velocity
-            if self.vertical_velocity > 5:
-                self.isJump = False
+    def jump(self):
+        if self.coyoteTime > 0:
+            self.vertical_velocity = -9  # Adjust for jump height
+            self.isJump = True
+            self.jump_timer = 0
+            self.onGround = False
+
+    def update(self):
+        self.movement = Vector2(0, 0)
+        self.delta_time_update()
+
+        if self.onGround:
+            self.coyoteTime = 0.9
+        else:
+            if self.coyoteTime > 0:
+                self.coyoteTime -= 0.1
+
+        self.handle_jump()
 
         if self.left:
             self.move_left()
         elif self.right:
             self.move_right()
+
+        self.friction()
         self.gravity()
+        self.use_ghost_vision()
 
     def handle_animation(self):
 
@@ -115,7 +182,7 @@ class Player(pygame.sprite.Sprite):
             self.state = "run"
         elif self.movement.y < 0:
             self.state = "jump"
-        elif not self.onGround:
+        elif self.movement.y > 0 and not self.onGround:
             self.state = "fall"
         else:
             self.state = "idle"
@@ -128,6 +195,7 @@ class Player(pygame.sprite.Sprite):
         return collisions
 
     def move(self, tiles):
+        self.onGround = False
         self.pos.x += self.movement.x
         self.rect.x = self.pos.x
 
@@ -149,7 +217,13 @@ class Player(pygame.sprite.Sprite):
                 self.rect.bottom = tile.top
                 self.onGround = True
             elif self.movement.y < 0:
-                self.pos.x = self.rect.x
-                self.onGround = False
+                self.rect.top = tile.bottom
 
         self.pos.y = self.rect.y
+
+    def use_ghost_vision(self):
+        keys = pygame.key.get_pressed()
+        if keys[pygame.K_g]:
+            if self.ghostEnergy > 0:
+                self.ghostVision = True
+                self.ghostEnergy -= self.energyConsumption

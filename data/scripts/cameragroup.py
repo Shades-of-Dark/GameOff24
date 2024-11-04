@@ -32,7 +32,18 @@ class CameraGroup(pygame.sprite.Group):
         t = smooth_step(0, 1, t)
 
         self.offset.x += (self.target_offset.x - self.offset.x) * t
-        self.offset.y += (self.target_offset.y - self.offset.y) * t
+
+        top_threshold = self.display.get_height() * 0.3
+        bottom_threshold = self.display.get_height() * 0.7
+
+     #   camera_box = pygame.Rect(0, top_threshold, self.display.get_width(),
+                       #          bottom_threshold - top_threshold)
+        #   pygame.draw.rect(self.display, (255, 0, 0), camera_box, 3)         # trying to visualize bounds of camera
+
+        if player.rect.centery < top_threshold:
+            self.offset.y += (self.target_offset.y - self.offset.y) * t
+        elif player.rect.centerx > bottom_threshold:
+            self.offset.y += (self.target_offset.y - self.offset.y) * t
 
     def custom_draw(self, player):
         # Calculate the offset based on the player's position
@@ -43,9 +54,9 @@ class CameraGroup(pygame.sprite.Group):
             # Adjust the sprite position based on the camera offset for drawing only
             adjusted_position = (sprite.rect.topleft - self.offset) * self.zoom
             scaled_image = pygame.transform.scale(sprite.image, (
-            int(sprite.rect.width * self.zoom), int(sprite.rect.height * self.zoom)))
+                round(sprite.rect.width * self.zoom), round(sprite.rect.height * self.zoom)))
 
-            self.display.blit(scaled_image, (int(adjusted_position[0]), int(adjusted_position[1])))
+            self.display.blit(scaled_image, (round(adjusted_position[0]), round(adjusted_position[1])))
 
             # Draw debugging rectangles at the adjusted position
 
