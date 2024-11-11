@@ -29,9 +29,10 @@ class CameraGroup(pygame.sprite.Group):
 
         # Use smooth step for offset adjustment
         t = (self.offset - self.target_offset).length() / (self.display.get_width() // 2)  # Normalized distance
-        t = smooth_step(0, 1, t)
+        t = round(smooth_step(0, 1, t), 3)
+        speed = round((self.target_offset.x - self.offset.x) * t * player.dt, 2)
 
-        self.offset.x += (self.target_offset.x - self.offset.x) * t
+        self.offset.x += speed
 
         top_threshold = self.display.get_height() * 0.3
         bottom_threshold = self.display.get_height() * 0.7
@@ -54,7 +55,7 @@ class CameraGroup(pygame.sprite.Group):
             # Adjust the sprite position based on the camera offset for drawing only
             adjusted_position = (sprite.rect.topleft - self.offset) * self.zoom
             scaled_image = pygame.transform.scale(sprite.image, (
-                round(sprite.rect.width * self.zoom), round(sprite.rect.height * self.zoom)))
+                round(sprite.image.width * self.zoom), round(sprite.image.height * self.zoom)))
 
             self.display.blit(scaled_image, (round(adjusted_position[0]), round(adjusted_position[1])))
 

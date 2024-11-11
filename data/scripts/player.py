@@ -8,6 +8,7 @@ def get_image(surface, frame, width, height, color):
     handle_surf.set_clip(clipRect)
     image = surface.subsurface(handle_surf.get_clip())
     image.set_colorkey(color)
+    image = pygame.transform.scale(image, (24, 24))
     return image.copy()
 
 
@@ -20,15 +21,18 @@ class Player(pygame.sprite.Sprite):
         super(Player, self).__init__()
         # ANIMATION STUFF
         self.vertical_velocity = 0
-        NUMFRAMES = 9
+        NUMFRAMES = 17
         self.idleAnimation = [get_image(surf, i, surf.get_width() / NUMFRAMES, surf.get_height(), (255, 255, 255)) for i
                               in
-                              range(3)]
+                              range(5)]
         self.moveAnimation = [self.idleAnimation[0], ] + [
-            get_image(surf, j, surf.get_width() / NUMFRAMES, surf.get_height(), (255, 255, 255)) for j in range(3, 6)]
-        self.jumpAnimation = [get_image(surf, k, surf.get_width() / NUMFRAMES, surf.get_height(), (255, 255, 255)) for k
-                              in range(6, 9)]
-
+            get_image(surf, j, surf.get_width() // NUMFRAMES, surf.get_height(), (255, 255, 255)) for j in range(5, 12)]
+        self.jumpAnimation = [get_image(surf, k, surf.get_width() // NUMFRAMES, surf.get_height(), (255, 255, 255)) for
+                              k
+                              in range(13, 15)]
+        self.fallAnimation = [get_image(surf, k, surf.get_width() // NUMFRAMES, surf.get_height(), (255, 255, 255)) for
+                              k
+                              in range(15, 17)]
         self.currentAnimation = self.idleAnimation
         self.index = 0
         self.indexSpeed = 0.03
@@ -41,7 +45,8 @@ class Player(pygame.sprite.Sprite):
         self.right = False
         # PHYSICS STUFF
         self.pos = Vector2(x, y)
-        self.rect = self.idleAnimation[0].get_frect(center=(self.pos.x, self.pos.y))
+
+        self.rect = pygame.FRect(self.pos.x, self.pos.y, self.image.get_width() - 1, self.image.get_height() - 1)
         self.movement = Vector2(0, 0)
 
         self.maxVelocity = 1.2
@@ -64,7 +69,7 @@ class Player(pygame.sprite.Sprite):
         self.GRAVITY = 0.8
         self.onGround = False
 
-        self.ghostEnergy = 0
+        self.ghostEnergy = 500
         self.energyConsumption = 1
         self.ghostVision = False
 
@@ -150,8 +155,9 @@ class Player(pygame.sprite.Sprite):
             self.move_left()
         elif self.right:
             self.move_right()
+        else:
+            self.friction()
 
-        self.friction()
         self.gravity()
         self.use_ghost_vision()
 
@@ -163,9 +169,9 @@ class Player(pygame.sprite.Sprite):
 
         elif self.state == "run":
             self.currentAnimation = self.moveAnimation
-            self.indexSpeed = 0.13
+            self.indexSpeed = 0.14
         elif self.state == "fall":
-            self.currentAnimation = self.jumpAnimation
+            self.currentAnimation = self.fallAnimation
             self.indexSpeed = 0.35
         elif self.state == "jump":
             self.currentAnimation = self.jumpAnimation
@@ -196,21 +202,24 @@ class Player(pygame.sprite.Sprite):
 
     def move(self, tiles):
         self.onGround = False
+        normal_tiles = [t.rect for t in tiles if not t.ramp]
+        ramps = [t for t in tiles if t.ramp]
         self.pos.x += self.movement.x
         self.rect.x = self.pos.x
 
-        x_collisions = self.hit_list(tiles)
+        x_collisions = self.hit_list(normal_tiles)
 
         for tile in x_collisions:
             if self.movement.x > 0:
                 self.rect.right = tile.left
             elif self.movement.x < 0:
                 self.rect.left = tile.right
-        self.pos.x = self.rect.x
+            self.pos.x = self.rect.x
 
         self.pos.y += self.movement.y
         self.rect.y = self.pos.y
-        y_collisions = self.hit_list(tiles)
+
+        y_collisions = self.hit_list(normal_tiles)
 
         for tile in y_collisions:
             if self.movement.y > 0:
@@ -218,12 +227,33 @@ class Player(pygame.sprite.Sprite):
                 self.onGround = True
             elif self.movement.y < 0:
                 self.rect.top = tile.bottom
-
         self.pos.y = self.rect.y
+
+        for ramp in ramps:
+            if self.rect.colliderect(ramp.rect):
+                rel_x = self.rect.x - ramp.rect.x
+
+                if ramp.ramp == 1:
+                    pos_height = rel_x + self.rect.width
+                elif ramp.ramp == 2:
+                    pos_height = 16 - rel_x
+
+                pos_height = min(pos_height, 16)
+                pos_height = max(pos_height, 0)
+
+                target_y = ramp.rect.y + 16 - pos_height
+
+                if self.rect.bottom > target_y:
+                    self.rect.bottom = target_y
+                    self.pos.y = self.rect.y
+                    self.onGround = True
 
     def use_ghost_vision(self):
         keys = pygame.key.get_pressed()
         if keys[pygame.K_g]:
+            print(self.ghostEnergy)
             if self.ghostEnergy > 0:
                 self.ghostVision = True
                 self.ghostEnergy -= self.energyConsumption
+        else:
+            self.ghostVision = False

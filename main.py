@@ -1,3 +1,5 @@
+import math
+import random
 import pygame
 import sys
 from data.scripts.player import Player
@@ -5,6 +7,7 @@ from data.maps.levels import level1
 from data.scripts.cameragroup import CameraGroup
 from data.scripts.tilehandler import TileGroup
 from data.scripts.tile import Tile
+from data.scripts.grass import Grass
 
 '''Concept: Echoes of the Forgotten
 Core Idea:
@@ -39,10 +42,10 @@ Let me know if this sparks any ideas or if you'd like help on specifics, like im
 
 pygame.init()
 
-screen = pygame.display.set_mode((800, 450), 0, 32)
+screen = pygame.display.set_mode((960, 540), 0, 32)
 WIDTH, HEIGHT = screen.get_size()
 
-display = pygame.Surface((WIDTH // 4, HEIGHT // 4))
+display = pygame.Surface((WIDTH//4, HEIGHT//4))
 
 playerSpriteSheet = pygame.image.load("data/images/player.png").convert()
 
@@ -52,13 +55,16 @@ tileHandler = TileGroup()
 camera_group = CameraGroup(display)  # Use the screen dimensions
 camera_group.add(player)  # Add the player and other sprites to the camera group
 
+pygame.display.set_caption("Echoes of the Forgotten")
 
-def get_image(surface, frame, width, height, color, column):
+
+def get_image(surface, frame, width, height, color, column, scale):
     handle_surf = surface.copy()
     clipRect = pygame.Rect(frame * width, column * height, width, height)
     handle_surf.set_clip(clipRect)
     image = surface.subsurface(handle_surf.get_clip())
     image.set_colorkey(color)
+    image = pygame.transform.scale(image, (scale, scale))
     return image.copy()
 
 
@@ -70,33 +76,82 @@ tileSpriteSheet = pygame.image.load("data/images/mocktileset.png").convert()
 
 p = 0
 tileDict = dict()
-for row in range(3):
+for row in range(4):
     for tile in range(4):
         p += 1
-        tileImage = get_image(tileSpriteSheet, frame=tile, width=16, height=16, color=(255, 255, 255), column=row)
-        print(tile, row, p)
+        tileImage = get_image(tileSpriteSheet, frame=tile, width=TILESIZE, height=TILESIZE, color=(255, 255, 255),
+                              column=row, scale=TILESIZE)
+
         tileDict[p] = tileImage
 
+grassSpriteSheet = pygame.image.load("data/images/grassblades.png").convert()
+blades = []
+weirdoblades = []
+for blade in range(6):
+    grassImg = get_image(grassSpriteSheet, blade, 8, 8, (0, 0, 0), 0, TILESIZE)
+    if blade < 3:
+        blades.append(grassImg)
+    else:
+        weirdoblades.append(grassImg)
 
+grassGroup = pygame.sprite.Group()
+numBladesPerTile = 8
 y = 0
 for row in currentLevel:
     x = 0
     for tile in row:
-
+        ramp = 0
         if tile != 0:
-            piece = Tile(tileDict[tile], x * TILESIZE, y * TILESIZE, TILESIZE, TILESIZE)
+            coords = (x * TILESIZE, y * TILESIZE)
+
+            if tile == 13 or tile == 15:
+                ramp = 1
+                for i in range(random.randint(2, numBladesPerTile)):
+                    goofy = random.randint(1, TILESIZE)
+                    grassBlade = Grass(random.choice(blades), coords[0] + goofy, coords[1] + goofy, tile)
+                    grassGroup.add(grassBlade)
+            elif tile == 14 or tile == 16:
+                ramp = 2
+                for i in range(random.randint(2, numBladesPerTile)):
+                    goofy = random.randint(1, TILESIZE)
+                    grassBlade = Grass(random.choice(blades), coords[0] + goofy, coords[1] + goofy, tile)
+                    grassGroup.add(grassBlade)
+
+            elif tile in [1, 2, 3, 4, 7, 8]:
+                for i in range(random.randint(2, numBladesPerTile)):
+                    grassBlade = Grass(random.choice(blades), coords[0] + random.randint(0, TILESIZE), coords[1] - 2, tile)
+                    grassGroup.add(grassBlade)
+
+            elif tile == 11 or tile == 12:
+                for i in range(random.randint(2, numBladesPerTile)):
+                    grassBlade = Grass(random.choice(weirdoblades), coords[0] + random.randint(0, TILESIZE), coords[1] - 2, tile)
+                    grassGroup.add(grassBlade)
+            piece = Tile(tileDict[tile], coords[0], coords[1], TILESIZE, TILESIZE, tile, ramp)
             tileHandler.add(piece)
 
         x += 1
     y += 1
+
 camera_group.add_tile_group(tileHandler)
+camera_group.add(grassGroup)
+
+visionoverlay = pygame.Surface(screen.get_size())
+visionoverlay.fill((10, 60, 70))
+visionoverlay.set_alpha(125, pygame.BLEND_RGBA_ADD)
+wind = 0
+windBend = 0
+windEvent = pygame.USEREVENT + 1
+pygame.time.set_timer(windEvent, 1500)
 
 while True:
-    display.fill((0, 0, 0))
+    display.fill((250, 250, 250))
+
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             pygame.quit()
             sys.exit()
+        if event.type == windEvent:
+            wind = random.randint(-1, 1)
 
         if event.type == pygame.KEYDOWN:
             if event.key == pygame.K_LEFT:
@@ -120,15 +175,21 @@ while True:
             if event.key == pygame.K_RIGHT:
                 player.right = False
 
-    tileRects = tileHandler.get_rects()
+    if wind * 15 > windBend:
+        windBend += 1
+    elif wind * 15 < windBend:
+        windBend -= 1
+    grassGroup.update(player, windBend)
 
     player.handle_states()
     player.handle_animation()
     player.update()  # Update any final state changes (e.g., animations)
-    player.move(tileRects)  # Move based on current state
-
+    player.move(tileHandler)
     camera_group.custom_draw(player)
 
     screen.blit(pygame.transform.scale(display, (WIDTH, HEIGHT)), (0, 0))
+    if player.ghostVision:
+        screen.blit(visionoverlay, (0, 0))
+
     pygame.display.update()
     clock.tick(60)
