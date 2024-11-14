@@ -45,7 +45,7 @@ pygame.init()
 screen = pygame.display.set_mode((960, 540), 0, 32)
 WIDTH, HEIGHT = screen.get_size()
 
-display = pygame.Surface((WIDTH//4, HEIGHT//4))
+display = pygame.Surface((WIDTH // 4, HEIGHT // 4))
 
 playerSpriteSheet = pygame.image.load("data/images/player.png").convert()
 
@@ -58,12 +58,29 @@ camera_group.add(player)  # Add the player and other sprites to the camera group
 pygame.display.set_caption("Echoes of the Forgotten")
 
 
+def circle_surf(radius, color):
+    surf = pygame.Surface((radius * 2, radius * 2))
+    pygame.draw.circle(surf, color, (radius, radius), radius)
+    surf.set_colorkey((0, 0, 0))
+    return surf
+
+
 def get_image(surface, frame, width, height, color, column, scale):
     handle_surf = surface.copy()
     clipRect = pygame.Rect(frame * width, column * height, width, height)
     handle_surf.set_clip(clipRect)
     image = surface.subsurface(handle_surf.get_clip())
     image.set_colorkey(color)
+    image = pygame.transform.scale(image, (scale, scale))
+    return image.copy()
+
+
+def get_image_for_pallete_swap(surface, frame, width, height, column,
+                               scale):  # same thing just doesnm't include the color for palette swapping
+    handle_surf = surface.copy()
+    clipRect = pygame.Rect(frame * width, column * height, width, height)
+    handle_surf.set_clip(clipRect)
+    image = surface.subsurface(handle_surf.get_clip())
     image = pygame.transform.scale(image, (scale, scale))
     return image.copy()
 
@@ -79,20 +96,21 @@ tileDict = dict()
 for row in range(4):
     for tile in range(4):
         p += 1
-        tileImage = get_image(tileSpriteSheet, frame=tile, width=TILESIZE, height=TILESIZE, color=(255, 255, 255),
-                              column=row, scale=TILESIZE)
+        tileImage = get_image_for_pallete_swap(tileSpriteSheet, frame=tile, width=TILESIZE, height=TILESIZE,
+                                               column=row, scale=TILESIZE)
 
-        tileDict[p] = tileImage
+        tileDict[p] = tileImage.convert()
 
 grassSpriteSheet = pygame.image.load("data/images/grassblades.png").convert()
+
 blades = []
 weirdoblades = []
 for blade in range(6):
     grassImg = get_image(grassSpriteSheet, blade, 8, 8, (0, 0, 0), 0, TILESIZE)
     if blade < 3:
-        blades.append(grassImg)
+        blades.append(grassImg.convert())
     else:
-        weirdoblades.append(grassImg)
+        weirdoblades.append(grassImg.convert())
 
 grassGroup = pygame.sprite.Group()
 numBladesPerTile = 8
@@ -119,13 +137,14 @@ for row in currentLevel:
 
             elif tile in [1, 2, 3, 4, 7, 8]:
                 for i in range(random.randint(2, numBladesPerTile)):
-                    grassBlade = Grass(random.choice(blades), coords[0] + random.randint(0, TILESIZE), coords[1] - 2, tile)
+                    grassBlade = Grass(random.choice(blades), coords[0] + random.randint(0, TILESIZE), coords[1] - 2,
+                                       tile)
+                    grassGroup.add(grassBlade)
+                for i in range(random.randint(1, numBladesPerTile//2)):
+                    grassBlade = Grass(random.choice(weirdoblades), coords[0] + random.randint(0, TILESIZE),
+                                       coords[1] - 2, tile)
                     grassGroup.add(grassBlade)
 
-            elif tile == 11 or tile == 12:
-                for i in range(random.randint(2, numBladesPerTile)):
-                    grassBlade = Grass(random.choice(weirdoblades), coords[0] + random.randint(0, TILESIZE), coords[1] - 2, tile)
-                    grassGroup.add(grassBlade)
             piece = Tile(tileDict[tile], coords[0], coords[1], TILESIZE, TILESIZE, tile, ramp)
             tileHandler.add(piece)
 
@@ -135,16 +154,40 @@ for row in currentLevel:
 camera_group.add_tile_group(tileHandler)
 camera_group.add(grassGroup)
 
-visionoverlay = pygame.Surface(screen.get_size())
-visionoverlay.fill((10, 60, 70))
-visionoverlay.set_alpha(125, pygame.BLEND_RGBA_ADD)
+visionoverlay = pygame.Surface((screen.get_width()//4, screen.get_height() // 4))
+visionoverlay.fill((30, 90, 100))
+visionoverlay.set_alpha(105)
 wind = 0
 windBend = 0
 windEvent = pygame.USEREVENT + 1
 pygame.time.set_timer(windEvent, 1500)
 
+scalesize = (240, 135)
+
+cavernwall =  (
+    (0, 135),       # Bottom-left corner
+    (0, 110),       # Left side of the screen moving up
+    (20, 80),       # Left side of the canyon, sloping upward
+    (50, 60),       # Rounded peak of the canyon
+    (80, 80),       # Slope down to form a rounded shape
+    (120, 90),      # Level out the wall
+    (180, 85),      # Slight upward bump for variation
+    (240, 100),     # End with a slight slope down at the right
+    (240, 135)      # Bottom-right corner
+)
+ancient_structure = (
+    (210, 100), (215, 90), (225, 90), (230, 100),  # Top part of the structure
+    (230, 130), (225, 135), (215, 135), (210, 130)  # Base of the structure
+)
+rock_formation_1 = (
+    (50, 120), (60, 110), (70, 115), (75, 125), (65, 130)
+)
+
+rock_formation_2 = (
+    (180, 110), (190, 105), (200, 115), (195, 125), (185, 120)
+)
 while True:
-    display.fill((250, 250, 250))
+    display.fill((0, 0, 250))
 
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
@@ -185,11 +228,19 @@ while True:
     player.handle_animation()
     player.update()  # Update any final state changes (e.g., animations)
     player.move(tileHandler)
+    pygame.draw.polygon(display, (40, 60, 50), cavernwall)
+    pygame.draw.polygon(display, (100, 85, 70), ancient_structure)
+    pygame.draw.polygon(display, (120, 110, 130), rock_formation_2)
     camera_group.custom_draw(player)
 
-    screen.blit(pygame.transform.scale(display, (WIDTH, HEIGHT)), (0, 0))
     if player.ghostVision:
-        screen.blit(visionoverlay, (0, 0))
+        display.blit(pygame.transform.scale(visionoverlay, (WIDTH, HEIGHT)), (0, 0))
+        for sprite in tileHandler:
+            sprite.handle_ghost_vision(display)
 
+    else:
+        for sprite in tileHandler:
+            sprite.no_ghost_vision()
+    screen.blit(pygame.transform.scale(display, (WIDTH, HEIGHT)), (0, 0))
     pygame.display.update()
     clock.tick(60)

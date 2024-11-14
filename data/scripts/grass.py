@@ -1,5 +1,8 @@
 import pygame
 
+class Vector2(pygame.math.Vector2):
+    pass
+
 
 class Grass(pygame.sprite.Sprite):
     def __init__(self, image, x, y, tiletype):
@@ -11,7 +14,7 @@ class Grass(pygame.sprite.Sprite):
         self.angle = 0
         self.image = pygame.transform.rotate(self.ogimage, self.angle)
         self.startAngle = 0
-
+        self.pos = Vector2(x, y)
         if self.tile == 13 or self.tile == 15:
             self.startAngle = 30
         elif self.tile == 14 or self.tile == 16:

@@ -204,9 +204,7 @@ class Player(pygame.sprite.Sprite):
         self.onGround = False
         normal_tiles = [t.rect for t in tiles if not t.ramp]
         ramps = [t for t in tiles if t.ramp]
-        self.pos.x += self.movement.x
-        self.rect.x = self.pos.x
-
+        self.rect.x += self.movement.x
         x_collisions = self.hit_list(normal_tiles)
 
         for tile in x_collisions:
@@ -216,8 +214,8 @@ class Player(pygame.sprite.Sprite):
                 self.rect.left = tile.right
             self.pos.x = self.rect.x
 
-        self.pos.y += self.movement.y
-        self.rect.y = self.pos.y
+
+        self.rect.y += self.movement.y
 
         y_collisions = self.hit_list(normal_tiles)
 
@@ -251,9 +249,11 @@ class Player(pygame.sprite.Sprite):
     def use_ghost_vision(self):
         keys = pygame.key.get_pressed()
         if keys[pygame.K_g]:
-            print(self.ghostEnergy)
+
             if self.ghostEnergy > 0:
                 self.ghostVision = True
                 self.ghostEnergy -= self.energyConsumption
+            else:
+                self.ghostVision = False
         else:
             self.ghostVision = False

@@ -56,7 +56,7 @@ class CameraGroup(pygame.sprite.Group):
             adjusted_position = (sprite.rect.topleft - self.offset) * self.zoom
             scaled_image = pygame.transform.scale(sprite.image, (
                 round(sprite.image.width * self.zoom), round(sprite.image.height * self.zoom)))
-
+            sprite.pos.xy = adjusted_position
             self.display.blit(scaled_image, (round(adjusted_position[0]), round(adjusted_position[1])))
 
             # Draw debugging rectangles at the adjusted position
