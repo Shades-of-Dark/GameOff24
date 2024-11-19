@@ -186,6 +186,7 @@ rock_formation_1 = (
 rock_formation_2 = (
     (180, 110), (190, 105), (200, 115), (195, 125), (185, 120)
 )
+
 while True:
     display.fill((0, 0, 250))
 
@@ -232,6 +233,12 @@ while True:
     pygame.draw.polygon(display, (100, 85, 70), ancient_structure)
     pygame.draw.polygon(display, (120, 110, 130), rock_formation_2)
     camera_group.custom_draw(player)
+
+    if 0 < player.ghostEnergy < 100:
+        visionoverlay.set_alpha(player.ghostEnergy)
+
+    else:
+        visionoverlay.set_alpha(105)
 
     if player.ghostVision:
         display.blit(pygame.transform.scale(visionoverlay, (WIDTH, HEIGHT)), (0, 0))
