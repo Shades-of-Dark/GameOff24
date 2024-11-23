@@ -13,7 +13,7 @@ def smooth_step(edge0, edge1, x):
     return x * x * (3 - 2 * x)
 
 
-class CameraGroup(pygame.sprite.Group):
+class CameraGroup(pygame.sprite.LayeredUpdates):
     def __init__(self, display, dampening=0.15, zoom=1):
         super().__init__()
         self.offset = pygame.Vector2(0, 0)
@@ -27,6 +27,30 @@ class CameraGroup(pygame.sprite.Group):
         self.shake_duration = 0  # Duration of the shake in frames
         self.max_shake_intensity = 10  # Maximum intensity of shake (pixels)
         self.shake_decay = 0.1  # Decay factor for the shake intensity
+
+        self.parallax_layers = []
+
+    def generate_parallax_layer(self):
+        """Add a parallax layer with a specific speed."""
+        layers = {}
+        for sprite in self:
+            layer = sprite.parallaxLayer
+            if layer not in layers:
+                layers[layer] = []
+            layers[layer].append(sprite)
+
+        # Assign speed multipliers to each layer (you can customize this mapping)
+        speed_multipliers = {
+            -1: 0.3,
+            0: 0.5,  # Background moves slower
+            1: 0.8,  # Midground moves normally
+            2: 1.0  # Foreground moves faster
+        }
+
+        # Save the layers with their speeds
+        for layer, sprites in sorted(layers.items()):  # Sort to ensure proper draw order
+            speed = speed_multipliers.get(layer, 1.0)  # Default to normal speed
+            self.parallax_layers.append((sprites, speed))
 
     def apply_dampening(self, player):
         # Calculate target position
@@ -46,6 +70,9 @@ class CameraGroup(pygame.sprite.Group):
         #   camera_box = pygame.Rect(0, top_threshold, self.display.get_width(),
         #          bottom_threshold - top_threshold)
         #   pygame.draw.rect(self.display, (255, 0, 0), camera_box, 3)         # trying to visualize bounds of camera
+
+        self.offset.x = lerp(self.offset.x, self.target_offset.x, self.dampening)
+        self.offset.y = lerp(self.offset.y, self.target_offset.y, self.dampening)
 
         if player.rect.top < top_threshold:
             self.offset.y += (self.target_offset.y - self.offset.y) * 0.1
@@ -70,20 +97,32 @@ class CameraGroup(pygame.sprite.Group):
         self.shake_intensity = intensity
         self.shake_duration = duration
 
+    def draw_sprite(self, sprite, offset):
+        # Adjust the sprite's position based on the given offset
+        adjusted_position = (sprite.rect.topleft - offset) * self.zoom
+
+        # Scale the sprite's image based on the current zoom
+        scaled_image = pygame.transform.scale(
+            sprite.image,
+            (
+                round(sprite.image.get_width() * self.zoom),
+                round(sprite.image.get_height() * self.zoom)
+            )
+        )
+
+        # Blit the scaled sprite image to the display
+        sprite.pos.xy = (round(adjusted_position[0]), round(adjusted_position[1]))
+        self.display.blit(scaled_image, sprite.pos.xy)
+
     def custom_draw(self, player):
-        # Calculate the offset based on the player's position
+        # Apply dampening to calculate the camera offset
         self.apply_dampening(player)
 
-        # Draw all sprites in the group with the camera offset
-        for sprite in self:
-            # Adjust the sprite position based on the camera offset for drawing only
-            adjusted_position = (sprite.rect.topleft - self.offset) * self.zoom
-            scaled_image = pygame.transform.scale(sprite.image, (
-                round(sprite.image.width * self.zoom), round(sprite.image.height * self.zoom)))
-            sprite.pos.xy = adjusted_position
-            self.display.blit(scaled_image, (round(adjusted_position[0]), round(adjusted_position[1])))
-
-            # Draw debugging rectangles at the adjusted position
+        # Draw parallax layers
+        for layer_sprites, speed in self.parallax_layers:
+            parallax_offset = self.offset * speed
+            for sprite in layer_sprites:
+                self.draw_sprite(sprite, parallax_offset)
 
     def add_tile_group(self, tile_group):
         # Add the entire tile group to the camera group

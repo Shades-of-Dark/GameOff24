@@ -8,6 +8,8 @@ from data.scripts.cameragroup import CameraGroup
 from data.scripts.tilehandler import TileGroup
 from data.scripts.tile import Tile
 from data.scripts.grass import Grass
+from data.scripts.environment.stalagtites import Stalactite
+from data.scripts.environment.background import Background
 
 '''Concept: Echoes of the Forgotten
 Core Idea:
@@ -140,7 +142,7 @@ for row in currentLevel:
                     grassBlade = Grass(random.choice(blades), coords[0] + random.randint(0, TILESIZE), coords[1] - 2,
                                        tile)
                     grassGroup.add(grassBlade)
-                for i in range(random.randint(1, numBladesPerTile//2)):
+                for i in range(random.randint(1, numBladesPerTile // 2)):
                     grassBlade = Grass(random.choice(weirdoblades), coords[0] + random.randint(0, TILESIZE),
                                        coords[1] - 2, tile)
                     grassGroup.add(grassBlade)
@@ -151,10 +153,20 @@ for row in currentLevel:
         x += 1
     y += 1
 
+background = pygame.image.load("data/images/background.png").convert()
+mountains = pygame.image.load("data/images/moutains.png").convert()
+background.set_colorkey((0,0,0))
+mountains.set_colorkey((0, 0, 0))
+mountainsObj = Background(mountains, 0, 0)
+backgroundObj = Background(background, 0, 10)
+camera_group.add(backgroundObj)
+camera_group.add(mountainsObj)
+
+
 camera_group.add_tile_group(tileHandler)
 camera_group.add(grassGroup)
 
-visionoverlay = pygame.Surface((screen.get_width()//4, screen.get_height() // 4))
+visionoverlay = pygame.Surface((screen.get_width() // 4, screen.get_height() // 4))
 visionoverlay.fill((30, 90, 100))
 visionoverlay.set_alpha(105)
 wind = 0
@@ -164,17 +176,18 @@ pygame.time.set_timer(windEvent, 1500)
 
 scalesize = (240, 135)
 
-cavernwall =  (
-    (0, 135),       # Bottom-left corner
-    (0, 110),       # Left side of the screen moving up
-    (20, 80),       # Left side of the canyon, sloping upward
-    (50, 60),       # Rounded peak of the canyon
-    (80, 80),       # Slope down to form a rounded shape
-    (120, 90),      # Level out the wall
-    (180, 85),      # Slight upward bump for variation
-    (240, 100),     # End with a slight slope down at the right
-    (240, 135)      # Bottom-right corner
-)
+cavernwall = [
+    (0, 135),  # Bottom-left corner
+    (0, 110),  # Left side of the screen moving up
+    (20, 80),  # Left side of the canyon, sloping upward
+    (50, 60),  # Rounded peak of the canyon
+    (80, 80),  # Slope down to form a rounded shape
+    (120, 90),  # Level out the wall
+    (180, 85),  # Slight upward bump for variation
+    (240, 100),  # End with a slight slope down at the right
+    (240, 135),  # Bottom-right corner
+
+]
 ancient_structure = (
     (210, 100), (215, 90), (225, 90), (230, 100),  # Top part of the structure
     (230, 130), (225, 135), (215, 135), (210, 130)  # Base of the structure
@@ -186,9 +199,38 @@ rock_formation_1 = (
 rock_formation_2 = (
     (180, 110), (190, 105), (200, 115), (195, 125), (185, 120)
 )
+offsetx, offsety = 0, 15
+
+for i in range(23):
+    offsetx += random.randint(10, 30)
+    grey = random.randrange(40, 90, 8)
+    color = (grey, grey, grey)
+    width = random.randint(20, 30)
+    height = random.randint(30, 60)
+
+    stalagtitieObj = Stalactite(color, width, height, (
+    (random.randint(1, 10), 0), (random.randint(10, 20), height), (random.randint(20, 25), random.randint(15, 25)),
+    (width, 0)), (offsetx, offsety))
+
+    stalagmiteObj = Stalactite(color, width, height, ((0, height), (random.randint(10, 20), 0), (random.randint(20, 25), height), (width, height)), (offsetx, display.get_height()))
+
+    camera_group.add(stalagtitieObj)
+    camera_group.add(stalagmiteObj)
+
+layers = {}
+for sprite in camera_group:
+    layer = sprite.parallaxLayer
+    if layer not in layers:
+        layers[layer] = []
+    layers[layer].append(sprite)
+
+camera_group.generate_parallax_layer()
 
 while True:
-    display.fill((0, 0, 250))
+    display.fill((10, 10, 10))
+    backgroundObj.update(player, display)
+
+    mountainsObj.update(player, display)
 
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
@@ -204,7 +246,7 @@ while True:
             if event.key == pygame.K_RIGHT:
                 player.right = True
 
-            if event.key == pygame.K_SPACE:  # For jumping
+            if event.key == pygame.K_UP:  # For jumping
                 player.jump()
 
         #  if event.type == pygame.MOUSEBUTTONDOWN:
@@ -229,9 +271,7 @@ while True:
     player.handle_animation()
     player.update()  # Update any final state changes (e.g., animations)
     player.move(tileHandler)
-    pygame.draw.polygon(display, (40, 60, 50), cavernwall)
-    pygame.draw.polygon(display, (100, 85, 70), ancient_structure)
-    pygame.draw.polygon(display, (120, 110, 130), rock_formation_2)
+
     camera_group.custom_draw(player)
 
     if 0 < player.ghostEnergy < 100:
@@ -248,6 +288,7 @@ while True:
     else:
         for sprite in tileHandler:
             sprite.no_ghost_vision()
+
     screen.blit(pygame.transform.scale(display, (WIDTH, HEIGHT)), (0, 0))
     pygame.display.update()
     clock.tick(60)

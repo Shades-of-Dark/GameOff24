@@ -42,6 +42,8 @@ class Tile(pygame.sprite.Sprite):
             self.image = self.ogimage.copy()
 
             self.transparentimg = palette_swap(self.image, (94, 80, 107), (137, 137, 137))  # (137, 137, 137))
+        self._layer = 2
+        self.parallaxLayer = 2
 
     def handle_ghost_vision(self, display):
         pulseSpeed = 0.005

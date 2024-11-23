@@ -1,5 +1,6 @@
 import pygame
 
+
 class Vector2(pygame.math.Vector2):
     pass
 
@@ -19,6 +20,9 @@ class Grass(pygame.sprite.Sprite):
             self.startAngle = 30
         elif self.tile == 14 or self.tile == 16:
             self.startAngle = -30
+
+        self._layer = 4
+        self.parallaxLayer = 2
 
     def bend_grass(self, player, wind):
 
@@ -43,8 +47,8 @@ class Grass(pygame.sprite.Sprite):
 
         self.image = pygame.transform.rotate(self.ogimage, self.angle)
 
-
     def update(self, player, wind):
-        self.bend_grass(player, wind)
 
+        if -30 < self.pos.x <= 240:
 
+            self.bend_grass(player, wind)

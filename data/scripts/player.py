@@ -32,7 +32,7 @@ class Player(pygame.sprite.Sprite):
                               in range(13, 15)]
         self.fallAnimation = [get_image(surf, k, surf.get_width() // NUMFRAMES, surf.get_height(), (255, 255, 255)) for
                               k
-                              in range(15, 17)]
+                              in range(16, 17)]
         self.currentAnimation = self.idleAnimation
         self.index = 0
         self.indexSpeed = 0.03
@@ -72,6 +72,11 @@ class Player(pygame.sprite.Sprite):
         self.ghostEnergy = 500
         self.energyConsumption = 1
         self.ghostVision = False
+
+        self._layer = 3
+        self.parallaxLayer = 2
+        print(self.rect.width)
+        self.rect.width = 21
 
     def move_left(self):
         self.movement.x -= self.speed * self.dt
