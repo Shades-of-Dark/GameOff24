@@ -34,16 +34,17 @@ class Tile(pygame.sprite.Sprite):
         self.tile = tiletype
         self.pos = Vector2(x, y)
         self.pulse_time = 0
-        if self.tile != 12 and self.tile != 11:
+        if self.tile != 12 and self.tile != 11 and self.tile != 23:
 
             self.image.set_colorkey((255, 255, 255))
         else:
-            self.ogimage = image
-            self.image = self.ogimage.copy()
+            self.ogimage = image.copy()
+            self.ogimage.set_colorkey((110, 110, 110))
 
-            self.transparentimg = palette_swap(self.image, (94, 80, 107), (137, 137, 137))  # (137, 137, 137))
-        self._layer = 2
+            self.transparentimg = palette_swap(self.image, (94, 80, 107), (110, 110, 110))  # (137, 137, 137))
+        self._layer = 3
         self.parallaxLayer = 2
+        self.collidable = True
 
     def handle_ghost_vision(self, display):
         pulseSpeed = 0.005
@@ -63,9 +64,29 @@ class Tile(pygame.sprite.Sprite):
 
             self.image = self.ogimage
 
+        if self.tile == 23:
+            self.pulse_time += pulseSpeed
+            stuff = math.sin(self.pulse_time)
+            pulse_amplitude = 0.1
+            outer_radius = self.rect.width * (1 + stuff * pulse_amplitude)
+            inner_radius = self.rect.width * 0.5 * (1 + stuff * pulse_amplitude)
+
+            self.outerglow = circle_surf(outer_radius, (90, 70, 120))
+            self.innerglow = circle_surf(inner_radius, (100, 80, 130))
+
+            display.blit(self.outerglow,
+                         (self.pos.x - self.outerglow.get_width() / 5, self.pos.y - self.outerglow.get_height() / 4),
+                         special_flags=pygame.BLEND_RGB_ADD)  # glow
+        #    display.blit(self.innerglow, (self.pos.x, self.pos.y), special_flags=pygame.BLEND_RGB_ADD)
+
+            self.image = self.ogimage
+            self.collidable = False
+        #    self.image.set_alpha(50)
+
     def no_ghost_vision(self):
-        if 12 == self.tile or self.tile == 11:
+        if 12 == self.tile or self.tile == 11 or self.tile == 23:
             self.image = self.transparentimg
+            self.collidable = True
 
     #        print("this should be invisible")
     #   print(self.transparentimg.get_colorkey())

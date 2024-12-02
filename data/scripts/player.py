@@ -16,6 +16,21 @@ class Vector2(pygame.Vector2):
     pass
 
 
+def perfect_outline_2(surf, img, loc, outline_color):
+    mask = pygame.mask.from_surface(img)
+    mask_outline = mask.outline()
+
+    mask_surf = pygame.Surface(img.get_size())
+    for pixel in mask_outline:
+        mask_surf.set_at(pixel, outline_color)
+
+    mask_surf.set_colorkey((0, 0, 0))
+    surf.blit(mask_surf, (loc[0] - 1, loc[1]))
+    surf.blit(mask_surf, (loc[0] + 1, loc[1]))
+    surf.blit(mask_surf, (loc[0], loc[1] - 1))
+    surf.blit(mask_surf, (loc[0], loc[1] + 1))
+
+
 class Player(pygame.sprite.Sprite):
     def __init__(self, surf, x, y):
         super(Player, self).__init__()
@@ -46,10 +61,10 @@ class Player(pygame.sprite.Sprite):
         # PHYSICS STUFF
         self.pos = Vector2(x, y)
 
-        self.rect = pygame.FRect(self.pos.x, self.pos.y, self.image.get_width() - 1, self.image.get_height() - 1)
+        self.rect = pygame.FRect(self.pos.x, self.pos.y, self.image.get_width() - 10, self.image.get_height() - 1)
         self.movement = Vector2(0, 0)
 
-        self.maxVelocity = 1.2
+        self.maxVelocity = 1
         self.speed = float(0)
         self.acceleration = float(self.maxVelocity / 6)  # amount of frames till the character reaches max speed
         self.deceleration = float(self.maxVelocity / 3)
@@ -69,13 +84,13 @@ class Player(pygame.sprite.Sprite):
         self.GRAVITY = 0.8
         self.onGround = False
 
-        self.ghostEnergy = 500
-        self.energyConsumption = 1
+        self.ghostEnergy = 80 * 5
+        self.energyConsumption = 2
         self.ghostVision = False
 
-        self._layer = 3
+        self._layer = 4
         self.parallaxLayer = 2
-        print(self.rect.width)
+
         self.rect.width = 21
 
     def move_left(self):
@@ -87,6 +102,7 @@ class Player(pygame.sprite.Sprite):
 
     def move_right(self):
         self.movement.x += self.speed * self.dt
+
         if self.speed <= self.maxVelocity:
             self.speed += self.acceleration * self.dt
         self.direction = False
@@ -117,9 +133,9 @@ class Player(pygame.sprite.Sprite):
 
                 # Apply friction in the opposite direction of movement
                 if self.direction:  # Assuming direction True is right
-                    self.movement[0] -= frame_deceleration
+                    self.movement[0] -= frame_deceleration * self.dt
                 else:  # direction False is left
-                    self.movement[0] += frame_deceleration
+                    self.movement[0] += frame_deceleration * self.dt
 
                 # Zero out small speeds to avoid flickering
                 if round(abs(self.movement[0]), 2) < 0.44:  # Threshold to consider speed "stopped"
@@ -137,12 +153,13 @@ class Player(pygame.sprite.Sprite):
         self.dt *= 60
         self.lastTime = time.time()
 
-    def jump(self):
+    def jump(self, jumpsound):
         if self.coyoteTime > 0:
             self.vertical_velocity = -9  # Adjust for jump height
             self.isJump = True
             self.jump_timer = 0
             self.onGround = False
+            jumpsound.play()
 
     def update(self):
         self.movement = Vector2(0, 0)
@@ -152,7 +169,7 @@ class Player(pygame.sprite.Sprite):
             self.coyoteTime = 0.9
         else:
             if self.coyoteTime > 0:
-                self.coyoteTime -= 0.1
+                self.coyoteTime -= 0.1 * self.dt
 
         self.handle_jump()
 
@@ -188,7 +205,12 @@ class Player(pygame.sprite.Sprite):
 
         self.image = pygame.transform.flip(self.currentAnimation[int(self.index)], self.direction, False)
 
-    def handle_states(self):
+    def handle_states(self, landed):
+
+        if self.state == "fall":
+            if self.onGround:
+                landed.play()
+
         if self.movement.x != 0 and self.onGround:
             self.state = "run"
         elif self.movement.y < 0:
@@ -197,6 +219,7 @@ class Player(pygame.sprite.Sprite):
             self.state = "fall"
         else:
             self.state = "idle"
+
 
     def hit_list(self, tiles):
         collisions = []
@@ -207,7 +230,7 @@ class Player(pygame.sprite.Sprite):
 
     def move(self, tiles):
         self.onGround = False
-        normal_tiles = [t.rect for t in tiles if not t.ramp]
+        normal_tiles = [t.rect for t in tiles if t.collidable and not t.ramp]
         ramps = [t for t in tiles if t.ramp]
         self.rect.x += self.movement.x
         x_collisions = self.hit_list(normal_tiles)
@@ -218,7 +241,6 @@ class Player(pygame.sprite.Sprite):
             elif self.movement.x < 0:
                 self.rect.left = tile.right
             self.pos.x = self.rect.x
-
 
         self.rect.y += self.movement.y
 
@@ -257,8 +279,9 @@ class Player(pygame.sprite.Sprite):
 
             if self.ghostEnergy > 0:
                 self.ghostVision = True
-                self.ghostEnergy -= self.energyConsumption
+                self.ghostEnergy -= self.energyConsumption * self.dt
             else:
                 self.ghostVision = False
+
         else:
             self.ghostVision = False

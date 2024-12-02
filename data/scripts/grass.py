@@ -21,7 +21,7 @@ class Grass(pygame.sprite.Sprite):
         elif self.tile == 14 or self.tile == 16:
             self.startAngle = -30
 
-        self._layer = 4
+        self._layer = 5
         self.parallaxLayer = 2
 
     def bend_grass(self, player, wind):

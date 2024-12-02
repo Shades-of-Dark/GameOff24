@@ -29,28 +29,35 @@ class CameraGroup(pygame.sprite.LayeredUpdates):
         self.shake_decay = 0.1  # Decay factor for the shake intensity
 
         self.parallax_layers = []
-
-    def generate_parallax_layer(self):
-        """Add a parallax layer with a specific speed."""
-        layers = {}
-        for sprite in self:
-            layer = sprite.parallaxLayer
-            if layer not in layers:
-                layers[layer] = []
-            layers[layer].append(sprite)
-
-        # Assign speed multipliers to each layer (you can customize this mapping)
-        speed_multipliers = {
+        self.speed_multipliers = {
             -1: 0.3,
             0: 0.5,  # Background moves slower
             1: 0.8,  # Midground moves normally
             2: 1.0  # Foreground moves faster
         }
 
+    def generate_parallax_layer(self):
+        """Add a parallax layer with a specific speed."""
+        self.layers = {}
+        for sprite in self:
+
+            layer = sprite.parallaxLayer
+            if layer not in self.layers:
+                self.layers[layer] = pygame.sprite.Group()
+            self.layers[layer].add(sprite) # associates sprite with a certain layers sprite group
+
+        # Assign speed multipliers to each layer (you can customize this mapping)
+
         # Save the layers with their speeds
-        for layer, sprites in sorted(layers.items()):  # Sort to ensure proper draw order
-            speed = speed_multipliers.get(layer, 1.0)  # Default to normal speed
-            self.parallax_layers.append((sprites, speed))
+        for layer, sprites in sorted(self.layers.items()):  # Sort to ensure proper draw order
+
+            speed = self.speed_multipliers.get(layer, 1.0)  # Default to normal speed
+            self.parallax_layers.append([sprites, speed])
+
+    def update_parallax(self):
+        for sprite in self.sprites():
+            if sprite not in self.parallax_layers:
+                self.parallax_layers[sprite.parallaxLayer + 1][0].add(sprite)
 
     def apply_dampening(self, player):
         # Calculate target position
@@ -99,6 +106,7 @@ class CameraGroup(pygame.sprite.LayeredUpdates):
 
     def draw_sprite(self, sprite, offset):
         # Adjust the sprite's position based on the given offset
+
         adjusted_position = (sprite.rect.topleft - offset) * self.zoom
 
         # Scale the sprite's image based on the current zoom
@@ -121,6 +129,7 @@ class CameraGroup(pygame.sprite.LayeredUpdates):
         # Draw parallax layers
         for layer_sprites, speed in self.parallax_layers:
             parallax_offset = self.offset * speed
+
             for sprite in layer_sprites:
                 self.draw_sprite(sprite, parallax_offset)
 
